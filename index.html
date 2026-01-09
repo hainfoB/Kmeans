@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprendre K-Means - M. Haithem BERKANE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Styles spécifiques pour le canvas et l'animation */
+        canvas {
+            border: 2px solid #e5e7eb;
+            border-radius: 0.5rem;
+            cursor: crosshair;
+            background-color: #ffffff;
+            touch-action: none;
+        }
+        .step-active {
+            border-left: 4px solid #3b82f6;
+            background-color: #eff6ff;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 flex flex-col min-h-screen">
+
+    <!-- En-tête -->
+    <header class="bg-indigo-900 text-white shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-brain text-2xl text-cyan-400"></i>
+                <div>
+                    <h1 class="text-xl font-bold">K-Means Masterclass</h1>
+                    <p class="text-xs text-indigo-200">Plateforme Éducative Machine Learning</p>
+                </div>
+            </div>
+            <nav class="hidden md:flex space-x-6 text-sm font-medium">
+                <a href="#simulation" class="hover:text-cyan-400 transition">Simulation</a>
+                <a href="#theorie" class="hover:text-cyan-400 transition">Théorie</a>
+                <a href="#applications" class="hover:text-cyan-400 transition">Applications</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-grow container mx-auto px-4 py-8 space-y-12">
+
+        <!-- Introduction -->
+        <section class="text-center max-w-3xl mx-auto">
+            <h2 class="text-3xl font-extrabold text-slate-900 mb-4">L'Algorithme K-Means Démystifié</h2>
+            <p class="text-lg text-slate-600 leading-relaxed">
+                Le K-Means est un algorithme d'<strong>apprentissage non supervisé</strong> utilisé pour diviser un ensemble de données en <span class="text-indigo-600 font-bold">K groupes</span> (clusters) distincts. Imaginez que vous devez regrouper des invités dans une fête selon leurs centres d'intérêt, sans rien savoir d'eux au départ. C'est ce que fait K-Means avec des données.
+            </p>
+        </section>
+
+        <!-- Zone de Simulation Interactive -->
+        <section id="simulation" class="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+            <div class="bg-indigo-50 px-6 py-4 border-b border-indigo-100 flex justify-between items-center flex-wrap gap-4">
+                <h3 class="text-xl font-bold text-indigo-900"><i class="fa-solid fa-laptop-code mr-2"></i>Laboratoire Interactif</h3>
+                <div class="flex items-center space-x-2 bg-white px-3 py-1 rounded-full shadow-sm">
+                    <span class="text-sm font-semibold text-slate-600">État :</span>
+                    <span id="status-text" class="text-sm font-bold text-orange-500">En attente de données...</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-0">
+                <!-- Panneau de Contrôle -->
+                <div class="p-6 bg-slate-50 border-r border-slate-200 space-y-6">
+                    
+                    <!-- Configuration -->
+                    <div class="space-y-3">
+                        <label class="block text-sm font-semibold text-slate-700">1. Configuration</label>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-slate-600 text-sm">Nombre de clusters (K):</span>
+                            <input type="number" id="k-value" value="3" min="1" max="5" class="w-16 p-1 border rounded text-center font-bold text-indigo-600 focus:ring focus:ring-indigo-200">
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="generateRandomPoints()" class="flex-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2 px-3 rounded text-sm transition">
+                                <i class="fa-solid fa-shuffle mr-1"></i> Données Aléatoires
+                            </button>
+                            <button onclick="clearCanvas()" class="bg-red-50 border border-red-200 hover:bg-red-100 text-red-600 py-2 px-3 rounded text-sm transition">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-500 italic">Ou cliquez sur la zone blanche pour ajouter des points manuellement.</p>
+                    </div>
+
+                    <hr class="border-slate-200">
+
+                    <!-- Contrôles Algorithme -->
+                    <div class="space-y-3">
+                        <label class="block text-sm font-semibold text-slate-700">2. Exécution pas à pas</label>
+                        
+                        <button id="btn-init" onclick="initCentroids()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fa-solid fa-play mr-2"></i> Initialiser Centroïdes
+                        </button>
+
+                        <div class="flex space-x-2">
+                            <button id="btn-step" onclick="nextStep()" class="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white py-2 rounded shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fa-solid fa-forward-step mr-1"></i> Étape Suivante
+                            </button>
+                            <button id="btn-run" onclick="runAuto()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fa-solid fa-rocket mr-1"></i> Auto
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Légende dynamique -->
+                    <div class="bg-white p-4 rounded border border-slate-200">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase mb-2">Déroulement actuel</h4>
+                        <ul class="space-y-2 text-sm" id="algo-steps">
+                            <li id="step-desc-0" class="p-2 rounded text-slate-500">1. Initialisation des K centroïdes</li>
+                            <li id="step-desc-1" class="p-2 rounded text-slate-500">2. Attribution des points au centroïde le plus proche</li>
+                            <li id="step-desc-2" class="p-2 rounded text-slate-500">3. Recalcul de la position des centroïdes (Moyenne)</li>
+                            <li id="step-desc-3" class="p-2 rounded text-slate-500">4. Répétition jusqu'à convergence</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Canvas Visualisation -->
+                <div class="col-span-2 p-6 flex justify-center items-center bg-white relative">
+                    <canvas id="kmeansCanvas" width="600" height="400" class="w-full h-auto shadow-inner"></canvas>
+                    <!-- Overlay pour mobile -->
+                    <div class="absolute bottom-2 right-2 text-xs text-slate-300 select-none pointer-events-none">Canvas interactif</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Théorie et Fonctionnement -->
+        <section id="theorie" class="grid md:grid-cols-2 gap-8">
+            <div class="space-y-6">
+                <h3 class="text-2xl font-bold text-slate-900 border-l-4 border-indigo-500 pl-4">Le Concept Théorique</h3>
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-100">
+                    <h4 class="font-bold text-lg mb-2 text-indigo-700">Qu'est-ce qu'un Centroïde ?</h4>
+                    <p class="text-slate-600 mb-4">C'est le centre de gravité d'un cluster. Mathématiquement, c'est la <strong>moyenne arithmétique</strong> des positions de tous les points appartenant à ce cluster.</p>
+                    <div class="bg-slate-100 p-3 rounded text-sm font-mono text-slate-700">
+                        μ_k = (1 / |S_k|) * Σ x_i
+                    </div>
+                </div>
+                
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-100">
+                    <h4 class="font-bold text-lg mb-2 text-indigo-700">La Distance Euclidienne</h4>
+                    <p class="text-slate-600">
+                        Pour savoir à quel groupe appartient un point, l'algorithme calcule la distance "à vol d'oiseau" entre le point et chaque centroïde. Le point choisit le gagnant (la distance la plus courte).
+                    </p>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <h3 class="text-2xl font-bold text-slate-900 border-l-4 border-cyan-500 pl-4">Avantages & Limites</h3>
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div class="flex">
+                        <div class="w-1/2 p-4 bg-emerald-50 border-r border-emerald-100">
+                            <h4 class="font-bold text-emerald-800 mb-2"><i class="fa-solid fa-thumbs-up mr-2"></i>Avantages</h4>
+                            <ul class="list-disc list-inside text-sm text-emerald-900 space-y-1">
+                                <li>Simple à comprendre et implémenter.</li>
+                                <li>Rapide et efficace sur de grands datasets.</li>
+                                <li>Converge toujours (garantie mathématique).</li>
+                            </ul>
+                        </div>
+                        <div class="w-1/2 p-4 bg-rose-50">
+                            <h4 class="font-bold text-rose-800 mb-2"><i class="fa-solid fa-thumbs-down mr-2"></i>Limites</h4>
+                            <ul class="list-disc list-inside text-sm text-rose-900 space-y-1">
+                                <li>Il faut choisir <strong>K</strong> manuellement.</li>
+                                <li>Sensible aux données aberrantes (outliers).</li>
+                                <li>Sensible à l'initialisation aléatoire.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Applications -->
+        <section id="applications" class="bg-indigo-900 text-white rounded-2xl p-8 shadow-2xl">
+            <h3 class="text-2xl font-bold mb-6 text-center">Applications Concrètes</h3>
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="bg-indigo-800 p-5 rounded-xl hover:bg-indigo-700 transition transform hover:-translate-y-1">
+                    <div class="text-4xl text-cyan-400 mb-3"><i class="fa-solid fa-users"></i></div>
+                    <h4 class="font-bold text-lg mb-2">Segmentation Client</h4>
+                    <p class="text-indigo-200 text-sm">Regrouper les clients par comportements d'achat pour cibler les campagnes marketing.</p>
+                </div>
+                <div class="bg-indigo-800 p-5 rounded-xl hover:bg-indigo-700 transition transform hover:-translate-y-1">
+                    <div class="text-4xl text-cyan-400 mb-3"><i class="fa-solid fa-image"></i></div>
+                    <h4 class="font-bold text-lg mb-2">Compression d'Image</h4>
+                    <p class="text-indigo-200 text-sm">Réduire les milliers de couleurs d'une image à K couleurs principales pour gagner de la place.</p>
+                </div>
+                <div class="bg-indigo-800 p-5 rounded-xl hover:bg-indigo-700 transition transform hover:-translate-y-1">
+                    <div class="text-4xl text-cyan-400 mb-3"><i class="fa-solid fa-shield-virus"></i></div>
+                    <h4 class="font-bold text-lg mb-2">Détection d'Anomalies</h4>
+                    <p class="text-indigo-200 text-sm">Identifier des intrusions réseau ou des fraudes bancaires qui s'éloignent des clusters normaux.</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Pied de page - M. Haithem BERKANE -->
+    <footer class="bg-slate-900 text-slate-300 border-t-4 border-cyan-600 mt-12">
+        <div class="container mx-auto px-4 py-12">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-8">
+                
+                <!-- Profil Expert -->
+                <div class="flex items-start space-x-4 max-w-lg">
+                    <div class="bg-slate-800 p-3 rounded-full border border-slate-700">
+                        <i class="fa-solid fa-user-tie text-3xl text-cyan-500"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-white text-lg font-bold">M. Haithem BERKANE</h4>
+                        <p class="text-cyan-400 text-sm font-medium mb-2">Ingénieur Pédagogique & Expert IA</p>
+                        <p class="text-sm text-slate-400 leading-relaxed">
+                            Formateur de formateurs et conférencier actif (notamment à l'Université de Sétif). M. Berkane dirige des ateliers innovants sur l'intelligence artificielle et développe des solutions technologiques pour l'éducation et l'industrie. Son approche vise à rendre les concepts complexes du Machine Learning accessibles à tous.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Liens / Contact Rapide -->
+                <div class="text-center md:text-right">
+                    <h5 class="text-white font-semibold mb-3">Ressources & Contact</h5>
+                    <div class="flex justify-center md:justify-end space-x-4 mb-4">
+                        <a href="#" class="w-10 h-10 rounded bg-slate-800 flex items-center justify-center hover:bg-cyan-600 hover:text-white transition"><i class="fa-brands fa-linkedin-in"></i></a>
+                        <a href="#" class="w-10 h-10 rounded bg-slate-800 flex items-center justify-center hover:bg-cyan-600 hover:text-white transition"><i class="fa-solid fa-envelope"></i></a>
+                        <a href="#" class="w-10 h-10 rounded bg-slate-800 flex items-center justify-center hover:bg-cyan-600 hover:text-white transition"><i class="fa-solid fa-globe"></i></a>
+                    </div>
+                    <p class="text-xs text-slate-500">&copy; 2024 - Archive Pédagogique H. Berkane.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Script Javascript pour la Logique K-Means -->
+    <script>
+        const canvas = document.getElementById('kmeansCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusText = document.getElementById('status-text');
+        
+        // État de l'application
+        let points = [];
+        let centroids = [];
+        let k = 3;
+        let step = 0; // 0: Init, 1: Assignment, 2: Update
+        let isRunning = false;
+        let animationId = null;
+        let hasConverged = false;
+
+        // Couleurs pour les clusters
+        const colors = [
+            '#ef4444', // Rouge
+            '#3b82f6', // Bleu
+            '#22c55e', // Vert
+            '#eab308', // Jaune
+            '#a855f7'  // Violet
+        ];
+
+        // --- Fonctions Utilitaires ---
+
+        function resizeCanvas() {
+            // Adaptation simple pour la démo
+            // canvas.width = canvas.parentElement.clientWidth;
+        }
+
+        function getDistance(p1, p2) {
+            return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+        }
+
+        function clearCanvasData() {
+            points = [];
+            centroids = [];
+            step = 0;
+            hasConverged = false;
+            stopAuto();
+            draw();
+            updateUIState("Attente de points");
+            updateStepHighlight(-1);
+        }
+        
+        // Expose to window for HTML buttons
+        window.clearCanvas = clearCanvasData;
+
+        function generateRandomPoints() {
+            points = [];
+            centroids = []; // Reset centroids if we regen points
+            step = 0;
+            hasConverged = false;
+            updateStepHighlight(-1);
+            
+            for (let i = 0; i < 150; i++) {
+                points.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    cluster: -1 // -1 signifie aucun cluster
+                });
+            }
+            draw();
+            updateUIState("Points générés. Initialisez !");
+        }
+        window.generateRandomPoints = generateRandomPoints;
+
+        // Ajout de point au clic
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Ajustement échelle si le canvas CSS diffère du canvas attributs
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            points.push({
+                x: x * scaleX,
+                y: y * scaleY,
+                cluster: -1
+            });
+            
+            // Si on ajoute des points après avoir commencé, on reset l'algo
+            if (centroids.length > 0) {
+                centroids = [];
+                step = 0;
+                points.forEach(p => p.cluster = -1);
+                updateStepHighlight(-1);
+            }
+            
+            draw();
+            updateUIState("Point ajouté");
+        });
+
+        // --- Logique K-Means ---
+
+        function initCentroids() {
+            if (points.length === 0) {
+                alert("Veuillez d'abord générer ou ajouter des points !");
+                return;
+            }
+            
+            k = parseInt(document.getElementById('k-value').value);
+            centroids = [];
+            hasConverged = false;
+            
+            // Méthode simple : choisir K points aléatoires comme centroïdes initiaux
+            for (let i = 0; i < k; i++) {
+                centroids.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    color: colors[i % colors.length]
+                });
+            }
+            
+            step = 1; // Prêt pour l'assignation
+            updateStepHighlight(0);
+            draw();
+            updateUIState("Centroïdes initialisés");
+        }
+        window.initCentroids = initCentroids;
+
+        function assignClusters() {
+            let changed = false;
+            points.forEach(point => {
+                let minDist = Infinity;
+                let bestCluster = -1;
+
+                centroids.forEach((centroid, index) => {
+                    const d = getDistance(point, centroid);
+                    if (d < minDist) {
+                        minDist = d;
+                        bestCluster = index;
+                    }
+                });
+
+                if (point.cluster !== bestCluster) {
+                    point.cluster = bestCluster;
+                    changed = true;
+                }
+            });
+            return changed;
+        }
+
+        function updateCentroidPositions() {
+            let maxShift = 0;
+
+            centroids.forEach((centroid, index) => {
+                const clusterPoints = points.filter(p => p.cluster === index);
+                if (clusterPoints.length > 0) {
+                    const sumX = clusterPoints.reduce((sum, p) => sum + p.x, 0);
+                    const sumY = clusterPoints.reduce((sum, p) => sum + p.y, 0);
+                    
+                    const newX = sumX / clusterPoints.length;
+                    const newY = sumY / clusterPoints.length;
+
+                    const shift = getDistance(centroid, {x: newX, y: newY});
+                    if (shift > maxShift) maxShift = shift;
+
+                    centroid.x = newX;
+                    centroid.y = newY;
+                }
+                // Si un cluster est vide, on pourrait repositionner le centroïde aléatoirement (non implémenté pour simplicité)
+            });
+
+            return maxShift < 0.5; // Convergence si bouge très peu
+        }
+
+        function nextStep() {
+            if (centroids.length === 0) {
+                alert("Initialisez d'abord les centroïdes !");
+                return;
+            }
+            if (hasConverged) {
+                updateUIState("Convergence atteinte !");
+                stopAuto();
+                return;
+            }
+
+            if (step === 1) {
+                // Étape d'assignation
+                assignClusters();
+                step = 2;
+                updateStepHighlight(1);
+                updateUIState("Points assignés aux clusters");
+            } else if (step === 2) {
+                // Étape de mise à jour
+                const converged = updateCentroidPositions();
+                if (converged) {
+                    hasConverged = true;
+                    updateUIState("Convergence atteinte !");
+                    updateStepHighlight(3); // Fin
+                } else {
+                    step = 1; // Retour à l'assignation
+                    updateStepHighlight(2);
+                    updateUIState("Centroïdes déplacés");
+                }
+            }
+            draw();
+        }
+        window.nextStep = nextStep;
+
+        function runAuto() {
+            if (centroids.length === 0) {
+                initCentroids();
+            }
+            if (hasConverged) return;
+
+            isRunning = true;
+            document.getElementById('btn-run').innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
+            document.getElementById('btn-run').onclick = stopAuto;
+            document.getElementById('btn-step').disabled = true;
+
+            function loop() {
+                if (!isRunning) return;
+                nextStep();
+                if (!hasConverged) {
+                    animationId = setTimeout(loop, 600); // 600ms de délai pour voir l'animation
+                } else {
+                    stopAuto();
+                }
+            }
+            loop();
+        }
+        window.runAuto = runAuto;
+
+        function stopAuto() {
+            isRunning = false;
+            clearTimeout(animationId);
+            document.getElementById('btn-run').innerHTML = '<i class="fa-solid fa-rocket mr-1"></i> Auto';
+            document.getElementById('btn-run').onclick = runAuto;
+            document.getElementById('btn-step').disabled = false;
+        }
+
+        // --- Rendu Graphique ---
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Dessiner les connexions (optionnel, pour step d'assignation)
+            if (step === 2 || step === 1) {
+               points.forEach(p => {
+                   if(p.cluster !== -1) {
+                       ctx.beginPath();
+                       ctx.moveTo(p.x, p.y);
+                       ctx.lineTo(centroids[p.cluster].x, centroids[p.cluster].y);
+                       ctx.strokeStyle = centroids[p.cluster].color + "20"; // Très transparent
+                       ctx.stroke();
+                   }
+               });
+            }
+
+            // Dessiner les points
+            points.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = p.cluster === -1 ? '#94a3b8' : centroids[p.cluster].color;
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.stroke();
+            });
+
+            // Dessiner les centroïdes
+            centroids.forEach((c, index) => {
+                // Lueur
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, 15, 0, Math.PI * 2);
+                ctx.fillStyle = c.color + "40"; // Semi-transparent
+                ctx.fill();
+
+                // Centre solide
+                ctx.beginPath();
+                ctx.rect(c.x - 8, c.y - 8, 16, 16); // Carré pour distinguer
+                ctx.fillStyle = c.color;
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#000';
+                ctx.stroke();
+                
+                // Label
+                ctx.fillStyle = "#000";
+                ctx.font = "10px Arial";
+                ctx.fillText("C"+(index+1), c.x-6, c.y-10);
+            });
+        }
+
+        // --- UI Utils ---
+
+        function updateUIState(msg) {
+            statusText.textContent = msg;
+        }
+
+        function updateStepHighlight(stepIndex) {
+            // Reset tous les styles
+            for(let i=0; i<4; i++) {
+                const el = document.getElementById(`step-desc-${i}`);
+                if(el) el.className = "p-2 rounded text-slate-500";
+            }
+            // Activer le courant
+            if(stepIndex >= 0) {
+                const active = document.getElementById(`step-desc-${stepIndex}`);
+                if(active) active.className = "p-2 rounded text-indigo-800 font-bold step-active transition-all";
+            }
+        }
+
+        // Init au chargement
+        window.onload = function() {
+            generateRandomPoints();
+        };
+
+    </script>
+</body>
+</html>
